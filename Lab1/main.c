@@ -56,13 +56,13 @@ void setup_environment(){
 
 //Returns the number of characters processed
 int getFirstWord(char* src, char* dst){
-    char* srcStart = src, *dstStart = dst;
+    char* srcStart = src;
     while(*src == ' ' || *src == '\t')
         src++;
     while(*src != ' ' && *src != '\t' && *src != '\0')
         *dst = *src, dst++, src++;
     *dst = '\0';
-    return src - srcStart;
+    return (int)(src - srcStart);
 }
 
 void tokenize(char* src, char** dst){
@@ -71,46 +71,76 @@ void tokenize(char* src, char** dst){
         return;
     }
     int length = getFirstWord(src, *dst);
-    tokenize(src + length, dst+1);
+    tokenize(src + length, dst + 1);
 }
 
-void replaceVariables(char** src){
-    int ptr = 0;
-    while(src[ptr] != NULL && src[ptr][0] != '\0'){
-        if(src[ptr][0] == '$'){
-            char* name = strtok(src[ptr], "$");
-            printf("%s %s\n", src[ptr], name);
-            char* value = getenv(name);//getFromList(list, src[ptr]);
-            strcpy(src[ptr], value);
+void replaceVariables(char* src){
+    char* ret = (char*) malloc(MAX_COMMAND_SIZE);
+    char* retStart = ret;
+    char* srcStart = src;
+    char* temp = (char*) malloc(100);
+    char* name;
+    char* value;
+    bool firstWordAppended = false;
+
+    while(*src != '\0'){
+        if(firstWordAppended)
+            sprintf(ret, " "), ret += 1;
+        else
+            firstWordAppended = true;
+
+        int len = getFirstWord(src, temp);
+        src += len;
+        if(temp[0] != '$') {
+            sprintf(ret, "%s", temp);
+            ret += strlen(temp);
+            continue;
         }
-        ptr++;
+
+        name = strtok(temp, "$");
+        value = getenv(name);
+        if(value)
+            sprintf(ret, "%s", value), ret += strlen(value);
     }
+    strcpy(srcStart, retStart);
+    free(retStart);
+    free(temp);
 }
 
 void execute_shell_builtin(char* firstWord, char* command){
     int length = (int)strlen(command);
+
     if(strcmp(firstWord, "cd") == 0){
         if(strlen(command) == 2)    //cd command without a directory
             return;
         char* directory = malloc(1000);
+        *directory = '\0';
         strncpy(directory, command + 3, length - 3);    //Skip the cd and the space after it
         chdir(directory);
         free(directory);
     }else if(strcmp(firstWord, "echo") == 0){
         char** tokens = (char**) malloc(10 * sizeof(char*));
         for(int i=0; i<10; i++)
-            tokens[i] = malloc(100 * sizeof(char));
+            tokens[i] = (char*) malloc(100 * sizeof(char)), tokens[i][0] = '\0';
         tokenize(command, tokens);
-        replaceVariables(tokens);
-        for(int i=1; i<10; i++)
+        for(int i=1; i<10 && tokens[i] && tokens[i][0]; i++)
             printf("%s ", tokens[i]);
         printf("\n");
+        for(int i=0; i<10; i++)
+            free(tokens[i]);
+        free(tokens);
     }else if(strcmp(firstWord, "export") == 0){
         char* name = (char*) malloc(100);
         char* value = (char*) malloc(100);
-        sscanf(command, "export %[^=]\"%[^\"]", name, value);
+        char* temp = (char*) malloc(100);
+        *name = '\0';
+        *value = '\0';
+        sscanf(command, "export %[^=]%[^\"]\"%[^\"]\"", name, temp, value);
+        getFirstWord(name, name);
         setenv(name, value, true);
-        printf("%s = %s", name, value);
+        free(name);
+        free(value);
+        free(temp);
     }else{
         printf("Unsupported Command\n");
     }
@@ -123,7 +153,6 @@ void execute_command(char* firstWord, char* command, bool background){
         for(int i=0; i<10; i++)
             tokens[i] = malloc(100 * sizeof(char));
         tokenize(command, tokens);
-        replaceVariables(tokens);
 
         execvp(firstWord, tokens);
         printf("Unsupported Command\n");
@@ -152,7 +181,7 @@ void shell(){
         while(command[0] == ' ' || command[0] == '\t')     //To ignore leading spaces
             command++;
 
-        if(command[strlen(command) - 1] == '&'){
+        if(strlen(command) != 0 && command[strlen(command) - 1] == '&'){
             command[strlen(command) - 1] = '\0';        //We don't need the '&' anymore
             bg = true;
             while(command[strlen(command) - 1] == ' ' || command[strlen(command) - 1] == '\t')
@@ -163,6 +192,7 @@ void shell(){
             continue;
 
         char firstWord[20];
+        replaceVariables(command);
         getFirstWord(command, firstWord);
         if(strcmp(firstWord, "exit") == 0)
             exit(0);
