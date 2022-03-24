@@ -15,7 +15,6 @@
 int pids[MAX_PROCESSES_NUM];
 bool reaped[MAX_PROCESSES_NUM];
 int pidsCount = 0;
-struct list* list;
 FILE* logfile;
 
 //Updates log whenever a child terminates
