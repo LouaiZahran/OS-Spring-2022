@@ -4,10 +4,13 @@
 #include <stdbool.h>
 #include <string.h>
 #include <stdlib.h>
-#include "list.c"
+#include "util.c"
 
-#define MAX_COMMAND_SIZE 1000
+#define MAX_COMMAND_LENGTH 1000
+#define MAX_DIRECTORY_LENGTH 1000
 #define MAX_PROCESSES_NUM 1000
+#define MAX_TOKEN_NUM 10
+#define MAX_TOKEN_LENGTH 100
 
 int pids[MAX_PROCESSES_NUM];
 bool reaped[MAX_PROCESSES_NUM];
@@ -15,11 +18,13 @@ int pidsCount = 0;
 struct list* list;
 FILE* logfile;
 
+//Updates log whenever a child terminates
 void write_to_log_file(int pid){
     fprintf(logfile, "Child process [%d] has terminated\n", pid);
     fflush(logfile);
 }
 
+//Loops over all child processes to reap its zombies
 void reap_child_zombie(){
     for(int i=0; i<pidsCount; i++){
         if(reaped[i])
@@ -29,22 +34,23 @@ void reap_child_zombie(){
     }
 }
 
+//Reaps zombie processes
 void on_child_exit(int sig){
     reap_child_zombie();
 }
 
+//Prints the working directory before each line so that the user knows in what directory he is in
 void printWorkingDirectory(){
-    char directory[1000];
-    getcwd(directory, 1000);
+    char directory[MAX_DIRECTORY_LENGTH];
+    getcwd(directory, MAX_DIRECTORY_LENGTH);
     printf("> %s: ", directory);
 }
 
+//Sets up the initial directory to run in and open the file stream for the logs
 void setup_environment(){
-    list = createList();
-
-    char* directory = (char*) malloc(1000 * sizeof(char));
+    char* directory = (char*) malloc(MAX_DIRECTORY_LENGTH);
     char* logfileDirectory = (char*) malloc(1010 * sizeof(char));
-    getcwd(directory, 1000);
+    getcwd(directory, MAX_DIRECTORY_LENGTH);
     chdir(directory);
     strcpy(logfileDirectory, directory);
     strcat(logfileDirectory, "/logs.txt");
@@ -54,108 +60,77 @@ void setup_environment(){
     free(logfileDirectory);
 }
 
-//Returns the number of characters processed
-int getFirstWord(char* src, char* dst){
-    char* srcStart = src;
-    while(*src == ' ' || *src == '\t')
-        src++;
-    while(*src != ' ' && *src != '\t' && *src != '\0')
-        *dst = *src, dst++, src++;
-    *dst = '\0';
-    return (int)(src - srcStart);
-}
-
-void tokenize(char* src, char** dst){
-    if(!*src){
-        *dst = NULL;
+//Changes directory to the specified directory in the command
+void execute_cd(char* command){
+    int length = (int)strlen(command);
+    if(length <= 3)    //cd command without a directory
         return;
-    }
-    int length = getFirstWord(src, *dst);
-    tokenize(src + length, dst + 1);
+    char* directory = (char*) malloc(MAX_COMMAND_LENGTH);
+    memset(directory, 0, MAX_COMMAND_LENGTH);
+    strncpy(directory, command + 3, length - 3);    //Skip the cd and the space after it
+    chdir(directory);
+    free(directory);
 }
 
-void replaceVariables(char* src){
-    char* ret = (char*) malloc(MAX_COMMAND_SIZE);
-    char* retStart = ret;
-    char* srcStart = src;
-    char* temp = (char*) malloc(100);
-    char* name;
-    char* value;
-    bool firstWordAppended = false;
+//Prints the given string to the screen
+void execute_echo(char* command){
+    char** tokens = (char**) malloc(MAX_TOKEN_NUM * sizeof(char*));
+    for(int i=0; i<10; i++)
+        tokens[i] = (char*) malloc(MAX_TOKEN_LENGTH * sizeof(char));
 
-    while(*src != '\0'){
-        if(firstWordAppended)
-            sprintf(ret, " "), ret += 1;
-        else
-            firstWordAppended = true;
+    tokenize(command, tokens);
+    for(int i=1; i<10 && tokens[i] && tokens[i][0]; i++)
+        printf("%s ", tokens[i]);
+    printf("\n");
 
-        int len = getFirstWord(src, temp);
-        src += len;
-        if(temp[0] != '$') {
-            sprintf(ret, "%s", temp);
-            ret += strlen(temp);
-            continue;
-        }
+    for(int i=0; i<10; i++)
+        free(tokens[i]);
+    free(tokens);
+}
 
-        name = strtok(temp, "$");
-        value = getenv(name);
-        if(value)
-            sprintf(ret, "%s", value), ret += strlen(value);
-    }
-    strcpy(srcStart, retStart);
-    free(retStart);
+//Stores the (name, value) combination given in the command to the environment variables
+void execute_export(char* command){
+    char* name = (char*) malloc(MAX_TOKEN_LENGTH * sizeof(char));
+    char* value = (char*) malloc(MAX_TOKEN_LENGTH * sizeof(char));
+    char* temp = (char*) malloc(MAX_TOKEN_LENGTH * sizeof(char));   //used to store any additional spaces around '=' in export
+    *name = '\0';
+    *value = '\0';
+
+    sscanf(command, "export %[^=]%[^\"]\"%[^\"]\"", name, temp, value);
+    getFirstWord(name, name);
+    setenv(name, value, true);
+
+    free(name);
+    free(value);
     free(temp);
 }
 
+//Executes the only 3 built-in commands (cd, echo, export)
 void execute_shell_builtin(char* firstWord, char* command){
-    int length = (int)strlen(command);
 
     if(strcmp(firstWord, "cd") == 0){
-        if(strlen(command) == 2)    //cd command without a directory
-            return;
-        char* directory = malloc(1000);
-        *directory = '\0';
-        strncpy(directory, command + 3, length - 3);    //Skip the cd and the space after it
-        chdir(directory);
-        free(directory);
+        execute_cd(command);
     }else if(strcmp(firstWord, "echo") == 0){
-        char** tokens = (char**) malloc(10 * sizeof(char*));
-        for(int i=0; i<10; i++)
-            tokens[i] = (char*) malloc(100 * sizeof(char)), tokens[i][0] = '\0';
-        tokenize(command, tokens);
-        for(int i=1; i<10 && tokens[i] && tokens[i][0]; i++)
-            printf("%s ", tokens[i]);
-        printf("\n");
-        for(int i=0; i<10; i++)
-            free(tokens[i]);
-        free(tokens);
+        execute_echo(command);
     }else if(strcmp(firstWord, "export") == 0){
-        char* name = (char*) malloc(100);
-        char* value = (char*) malloc(100);
-        char* temp = (char*) malloc(100);
-        *name = '\0';
-        *value = '\0';
-        sscanf(command, "export %[^=]%[^\"]\"%[^\"]\"", name, temp, value);
-        getFirstWord(name, name);
-        setenv(name, value, true);
-        free(name);
-        free(value);
-        free(temp);
+        execute_export(command);
     }else{
         printf("Unsupported Command\n");
     }
 }
 
+//Executes the external commands (non built-in)
 void execute_command(char* firstWord, char* command, bool background){
     int pid = fork();
     if(pid == 0){   //Child
-        char** tokens = (char**) malloc(10 * sizeof(char*));
+        char** tokens = (char**) malloc(MAX_TOKEN_NUM * sizeof(char*));
         for(int i=0; i<10; i++)
-            tokens[i] = malloc(100 * sizeof(char));
+            tokens[i] = malloc(MAX_TOKEN_LENGTH * sizeof(char));
         tokenize(command, tokens);
 
         execvp(firstWord, tokens);
-        printf("Unsupported Command\n");
+
+        printf("Unsupported Command\n");        //if execvp is not successful
         for(int i=0; i<10; i++)
             free(tokens[i]);
         free(tokens);
@@ -163,19 +138,21 @@ void execute_command(char* firstWord, char* command, bool background){
     }else{  //Parent
         pids[pidsCount++] = pid;
         if(!background)
-            waitpid(pid, NULL, 0), reaped[pidsCount - 1] = true;
+            waitpid(pid, NULL, 0),      //So that the terminal "gets stuck" at foreground
+            reaped[pidsCount - 1] = true;
     }
 }
 
+//Main shell method
 void shell(){
     while(true){
         bool bg = false;                                   //Assumption until proven otherwise
-        char* command = malloc(MAX_COMMAND_SIZE);
+        char* command = (char*) malloc(MAX_COMMAND_LENGTH);
         char* commandStart = command;
 
         printWorkingDirectory();
 
-        fgets(command, 1000, stdin);
+        fgets(command, MAX_COMMAND_LENGTH, stdin);
         command[strlen(command) - 1] = '\0';            //To ignore the newline character from fgets
 
         while(command[0] == ' ' || command[0] == '\t')     //To ignore leading spaces
@@ -191,7 +168,7 @@ void shell(){
         if(strlen(command) == 0)                        //Nothing to execute
             continue;
 
-        char firstWord[20];
+        char firstWord[MAX_TOKEN_LENGTH];
         replaceVariables(command);
         getFirstWord(command, firstWord);
         if(strcmp(firstWord, "exit") == 0)
@@ -207,6 +184,7 @@ void shell(){
     }
 }
 
+//Driver Code
 int main() {
     signal(SIGCHLD, &on_child_exit);
     setup_environment();
