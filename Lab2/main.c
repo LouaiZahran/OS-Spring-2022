@@ -10,7 +10,7 @@ FILE *fpA, *fpB, *fpC_per_matrix, *fpC_per_row, *fpC_per_element;
 clock_t t;
 
 void init(char* args[]){
-    if(args[1] != NULL) {
+    if(args[0] != NULL && args[1] != NULL) {
         char* fileName = malloc(100);
         strcpy(fileName, args[1]);
         fpA = fopen(strcat(fileName, ".txt"), "r");
@@ -37,9 +37,13 @@ void init(char* args[]){
     }else{
         fpA = fopen("a.txt", "r");
         fpB = fopen("b.txt", "r");
+        if(!fpA || !fpB){
+            printf("Files with default names are not found\n");
+            exit(2);
+        }
         fpC_per_matrix = fopen("c_per_matrix.txt", "w+");
-        fpC_per_matrix = fopen("c_per_matrix.txt", "w+");
-        fpC_per_matrix = fopen("c_per_matrix.txt", "w+");
+        fpC_per_row = fopen("c_per_row.txt", "w+");
+        fpC_per_element = fopen("c_per_element.txt", "w+");
     }
 
     readMatrix(&matrixA, fpA);
@@ -47,7 +51,7 @@ void init(char* args[]){
 
     if(matrixA.cols != matrixB.rows){
         printf("These matrices cannot be multiplied\n");
-        exit(2);
+        exit(3);
     }
 
     fprintf(fpC_per_matrix, "Method: A thread per matrix\n");
