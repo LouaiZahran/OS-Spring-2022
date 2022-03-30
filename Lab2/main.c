@@ -1,8 +1,8 @@
 #include <stdio.h>
 #include <pthread.h>
-#include <malloc.h>
 #include <time.h>
 #include <string.h>
+#include <stdlib.h>
 #include "util.h"
 
 struct Matrix matrixA, matrixB, matrixC_per_matrix, matrixC_per_row, matrixC_per_element;
@@ -28,6 +28,12 @@ void init(char* args[]){
         fpC_per_element = fopen(strcat(fileName, "_per_element.txt"), "w+");
 
         free(fileName);
+
+        if(!fpA || !fpB || !fpC_per_matrix || !fpC_per_row || !fpC_per_element){
+            printf("Matrices can't be read from the specified files\n");
+            exit(1);
+        }
+
     }else{
         fpA = fopen("a.txt", "r");
         fpB = fopen("b.txt", "r");
@@ -36,12 +42,17 @@ void init(char* args[]){
         fpC_per_matrix = fopen("c_per_matrix.txt", "w+");
     }
 
+    readMatrix(&matrixA, fpA);
+    readMatrix(&matrixB, fpB);
+
+    if(matrixA.cols != matrixB.rows){
+        printf("These matrices cannot be multiplied\n");
+        exit(2);
+    }
+
     fprintf(fpC_per_matrix, "Method: A thread per matrix\n");
     fprintf(fpC_per_row, "Method: A thread per row\n");
     fprintf(fpC_per_element, "Method: A thread per element\n");
-
-    readMatrix(&matrixA, fpA);
-    readMatrix(&matrixB, fpB);
 
     allocateMatrix(&matrixC_per_matrix, matrixA.rows, matrixB.cols);
     allocateMatrix(&matrixC_per_row, matrixA.rows, matrixB.cols);
