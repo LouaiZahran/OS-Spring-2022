@@ -1,6 +1,8 @@
 #include <stdio.h>
 #include <pthread.h>
 #include <malloc.h>
+#include <time.h>
+#include <string.h>
 
 struct Matrix{
     int rows;
@@ -9,7 +11,8 @@ struct Matrix{
 };
 
 struct Matrix matrixA, matrixB, matrixC_per_matrix, matrixC_per_row, matrixC_per_element;
-FILE *fpA, *fpB, *fpC;
+FILE *fpA, *fpB, *fpC_per_matrix, *fpC_per_row, *fpC_per_element;
+clock_t t;
 
 void allocateMatrix(struct Matrix *matrix, int rows, int cols){
     matrix->rows = rows;
@@ -31,6 +34,7 @@ void readMatrix(struct Matrix* matrix, FILE* fp){
 }
 
 void printMatrix(struct Matrix matrix, FILE* fp){
+    fprintf(fp, "row=%d col=%d\n", matrix.rows, matrix.cols);
     for(int i=0; i<matrix.rows; i++, fprintf(fp, "\n"))
         for(int j=0; j<matrix.cols; j++)
             fprintf(fp, "%d ", matrix.matrix[i][j]);
@@ -65,25 +69,43 @@ void* multiply_per_row(void* args){
 void* multiply_per_element(void* args){
     struct Matrix *matrixC = (struct Matrix*)args;
     int rowToMultiply = matrixC->rows;
-    int colToMulitply = matrixC->cols;
+    int colToMultiply = matrixC->cols;
 
     int maxK = matrixA.cols;
 
     for(int k=0; k<maxK; k++)
-            matrixC->matrix[rowToMultiply][colToMulitply] += matrixA.matrix[rowToMultiply][k] * matrixB.matrix[k][colToMulitply];
+            matrixC->matrix[rowToMultiply][colToMultiply] += matrixA.matrix[rowToMultiply][k] * matrixB.matrix[k][colToMultiply];
     return NULL;
 }
 
 void init(char* args[]){
     if(args[1] != NULL) {
-        fpA = fopen(args[1], "r");
-        fpB = fopen(args[2], "r");
-        fpC = fopen(args[3], "w+");
+        char* fileName = malloc(100);
+        strcpy(fileName, args[1]);
+        fpA = fopen(strcat(fileName, ".txt"), "r");
+
+        strcpy(fileName, args[2]);
+        fpB = fopen(strcat(fileName, ".txt"), "r");
+
+        strcpy(fileName, args[3]);
+        fpC_per_matrix = fopen(strcat(fileName, "_per_matrix.txt"), "w+");
+
+        strcpy(fileName, args[3]);
+        fpC_per_row = fopen(strcat(fileName, "_per_row.txt"), "w+");
+
+        strcpy(fileName, args[3]);
+        fpC_per_element = fopen(strcat(fileName, "_per_element.txt"), "w+");
     }else{
         fpA = fopen("a.txt", "r");
         fpB = fopen("b.txt", "r");
-        fpC = fopen("c.txt", "w+");
+        fpC_per_matrix = fopen("c_per_matrix.txt", "w+");
+        fpC_per_matrix = fopen("c_per_matrix.txt", "w+");
+        fpC_per_matrix = fopen("c_per_matrix.txt", "w+");
     }
+
+    fprintf(fpC_per_matrix, "Method: A thread per matrix\n");
+    fprintf(fpC_per_row, "Method: A thread per row\n");
+    fprintf(fpC_per_element, "Method: A thread per element\n");
 
     readMatrix(&matrixA, fpA);
     readMatrix(&matrixB, fpB);
@@ -94,41 +116,92 @@ void init(char* args[]){
 
 }
 
+void startTimer(){
+    t = clock();
+}
+
+double stopTimer(){
+    return (double)(clock() - t)/CLOCKS_PER_SEC * 1000;
+}
+
+void task1(){
+    double timeTaken;
+    printf("Task 1:\n=======\n");
+
+    {
+        startTimer();
+        pthread_t matrixThread;
+        pthread_create(&matrixThread, NULL, &multiply_per_matrix, &matrixC_per_matrix);
+        pthread_join(matrixThread, NULL);
+        timeTaken = stopTimer();
+    }
+
+    printf("Number of threads: %d\nTime taken: %lf ms\n\n", 1, timeTaken);
+    printMatrix(matrixC_per_matrix, fpC_per_matrix);
+
+}
+
+void task2(){
+    printf("Task 2:\n=======\n");
+    double timeTaken;
+    int rows = matrixA.rows;
+    struct Matrix tmpMatrix[rows];
+
+    {
+        startTimer();
+
+        pthread_t rowThreads[rows];
+        for (int i = 0; i < rows; i++) {
+            tmpMatrix[i] = matrixC_per_row;
+            tmpMatrix[i].rows = i;
+            pthread_create(&rowThreads[i], NULL, &multiply_per_row, &tmpMatrix[i]);
+        }
+
+        for(int i=0; i<rows; i++)
+            pthread_join(rowThreads[i], NULL);
+
+        timeTaken = stopTimer();
+    }
+
+    printf("Number of threads: %d\nTime taken: %lf ms\n\n", rows, timeTaken);
+    printMatrix(matrixC_per_row, fpC_per_row);
+}
+
+void task3(){
+    printf("Task 3:\n=======\n");
+    double timeTaken;
+    int rows = matrixA.rows, cols = matrixB.cols;
+    struct Matrix tmpMatrix[rows][cols];
+
+    {
+        startTimer();
+        pthread_t elementThreads[rows][cols];
+        for (int i = 0; i < rows; i++) {
+            for (int j = 0; j < cols; j++) {
+                tmpMatrix[i][j] = matrixC_per_element;
+                tmpMatrix[i][j].rows = i;
+                tmpMatrix[i][j].cols = j;
+                pthread_create(&elementThreads[i][j], NULL, &multiply_per_element, &tmpMatrix[i][j]);
+            }
+        }
+
+        for(int i=0; i<rows; i++)
+            for(int j=0; j<cols; j++)
+                pthread_join(elementThreads[i][j], NULL);
+
+        timeTaken = stopTimer();
+    }
+
+    printf("Number of threads: %d\nTime taken: %lf ms\n\n", rows * cols, timeTaken);
+    printMatrix(matrixC_per_element, fpC_per_element);
+}
+
 int main(int argC, char* args[]) {
     init(args);
 
-    int rows = matrixA.rows, cols = matrixB.cols;
-    pthread_t matrixThread, rowThreads[rows], elementThreads[rows][cols];
-
-    pthread_create(&matrixThread, NULL, &multiply_per_matrix, &matrixC_per_matrix);
-
-    struct Matrix tmpMatrix[rows];
-    for(int i=0; i<rows; i++) {
-        tmpMatrix[i] = matrixC_per_row;
-        tmpMatrix[i].rows = i;
-        pthread_create(&rowThreads[i], NULL, &multiply_per_row, &tmpMatrix[i]);
-    }
-
-    struct Matrix tmpMatrix2[rows][cols];
-    for(int i=0; i<rows; i++) {
-        for (int j = 0; j < cols; j++) {
-            tmpMatrix2[i][j] = matrixC_per_element;
-            tmpMatrix2[i][j].rows = i;
-            tmpMatrix2[i][j].cols = j;
-            pthread_create(&elementThreads[i][j], NULL, &multiply_per_element, &tmpMatrix2[i][j]);
-        }
-    }
-
-    pthread_join(matrixThread, NULL);
-    for(int i=0; i<rows; i++)
-        pthread_join(rowThreads[i], NULL);
-    for(int i=0; i<rows; i++)
-        for(int j=0; j<cols; j++)
-            pthread_join(elementThreads[i][j], NULL);
-
-    printMatrix(matrixC_per_matrix, fopen("c_per_matrix.txt", "w+"));
-    printMatrix(matrixC_per_row, fopen("c_per_row.txt", "w+"));
-    printMatrix(matrixC_per_element, fopen("c_per_element.txt", "w+"));
+    task1();
+    task2();
+    task3();
 
     return 0;
 }

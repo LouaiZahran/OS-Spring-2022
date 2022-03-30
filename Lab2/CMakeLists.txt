@@ -3,4 +3,4 @@ project(Lab2 C)
 
 set(CMAKE_C_STANDARD 17)
 set(CMAKE_C_FLAGS -pthread)
-add_executable(Lab2 main.c)
+add_executable(matMultp main.c)

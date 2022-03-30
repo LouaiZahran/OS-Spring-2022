@@ -64,35 +64,35 @@ build CMakeFiles/edit_cache.util: CUSTOM_COMMAND
 build edit_cache: phony CMakeFiles/edit_cache.util
 
 # =============================================================================
-# Object build statements for EXECUTABLE target Lab2
+# Object build statements for EXECUTABLE target matMultp
 
 
 #############################################
-# Order-only phony target for Lab2
+# Order-only phony target for matMultp
 
-build cmake_object_order_depends_target_Lab2: phony || CMakeFiles/Lab2.dir
+build cmake_object_order_depends_target_matMultp: phony || CMakeFiles/matMultp.dir
 
-build CMakeFiles/Lab2.dir/main.c.o: C_COMPILER__Lab2_Debug /home/louai/Desktop/OS-Spring-2022/Lab2/main.c || cmake_object_order_depends_target_Lab2
-  DEP_FILE = CMakeFiles/Lab2.dir/main.c.o.d
+build CMakeFiles/matMultp.dir/main.c.o: C_COMPILER__matMultp_Debug /home/louai/Desktop/OS-Spring-2022/Lab2/main.c || cmake_object_order_depends_target_matMultp
+  DEP_FILE = CMakeFiles/matMultp.dir/main.c.o.d
   FLAGS = -pthread -g
-  OBJECT_DIR = CMakeFiles/Lab2.dir
-  OBJECT_FILE_DIR = CMakeFiles/Lab2.dir
+  OBJECT_DIR = CMakeFiles/matMultp.dir
+  OBJECT_FILE_DIR = CMakeFiles/matMultp.dir
 
 
 # =============================================================================
-# Link build statements for EXECUTABLE target Lab2
+# Link build statements for EXECUTABLE target matMultp
 
 
 #############################################
-# Link the executable Lab2
+# Link the executable matMultp
 
-build Lab2: C_EXECUTABLE_LINKER__Lab2_Debug CMakeFiles/Lab2.dir/main.c.o
+build matMultp: C_EXECUTABLE_LINKER__matMultp_Debug CMakeFiles/matMultp.dir/main.c.o
   FLAGS = -pthread -g
-  OBJECT_DIR = CMakeFiles/Lab2.dir
+  OBJECT_DIR = CMakeFiles/matMultp.dir
   POST_BUILD = :
   PRE_LINK = :
-  TARGET_FILE = Lab2
-  TARGET_PDB = Lab2.dbg
+  TARGET_FILE = matMultp
+  TARGET_PDB = matMultp.dbg
 
 # =============================================================================
 # Target aliases.
@@ -105,7 +105,7 @@ build Lab2: C_EXECUTABLE_LINKER__Lab2_Debug CMakeFiles/Lab2.dir/main.c.o
 #############################################
 # Folder: /home/louai/Desktop/OS-Spring-2022/Lab2/cmake-build-debug
 
-build all: phony Lab2
+build all: phony matMultp
 
 # =============================================================================
 # Built-in targets
