@@ -78,6 +78,12 @@ build CMakeFiles/matMultp.dir/main.c.o: C_COMPILER__matMultp_Debug /home/louai/D
   OBJECT_DIR = CMakeFiles/matMultp.dir
   OBJECT_FILE_DIR = CMakeFiles/matMultp.dir
 
+build CMakeFiles/matMultp.dir/util.c.o: C_COMPILER__matMultp_Debug /home/louai/Desktop/OS-Spring-2022/Lab2/util.c || cmake_object_order_depends_target_matMultp
+  DEP_FILE = CMakeFiles/matMultp.dir/util.c.o.d
+  FLAGS = -pthread -g
+  OBJECT_DIR = CMakeFiles/matMultp.dir
+  OBJECT_FILE_DIR = CMakeFiles/matMultp.dir
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target matMultp
@@ -86,7 +92,7 @@ build CMakeFiles/matMultp.dir/main.c.o: C_COMPILER__matMultp_Debug /home/louai/D
 #############################################
 # Link the executable matMultp
 
-build matMultp: C_EXECUTABLE_LINKER__matMultp_Debug CMakeFiles/matMultp.dir/main.c.o
+build matMultp: C_EXECUTABLE_LINKER__matMultp_Debug CMakeFiles/matMultp.dir/main.c.o CMakeFiles/matMultp.dir/util.c.o
   FLAGS = -pthread -g
   OBJECT_DIR = CMakeFiles/matMultp.dir
   POST_BUILD = :
