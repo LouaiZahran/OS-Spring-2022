@@ -9,6 +9,7 @@ struct station {
     // FILL ME IN
     int availableSeats;
     int waitingPassengers;
+    int boardingPassengers;
     pthread_mutex_t mutex;
     pthread_cond_t trainArrival;
     pthread_cond_t boardingDone;
