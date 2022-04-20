@@ -1,11 +1,9 @@
 #include <pthread.h>
-#include <stdio.h>
 #include "caltrain.h"
 
 void
 station_init(struct station *station)
 {
-    // FILL ME IN
     station->availableSeats = 0;
     station->waitingPassengers = 0;
     station->boardingPassengers = 0;
@@ -17,15 +15,14 @@ station_init(struct station *station)
 void
 station_load_train(struct station *station, int count)
 {
-    // FILL ME IN
     pthread_mutex_lock(&(station->mutex));
-    if(count == 0 || station->waitingPassengers == 0) {
+    if(count == 0 || station->waitingPassengers == 0) { //Nothing to do, return immediately
         pthread_mutex_unlock(&(station->mutex));
         return;
     }
     station->availableSeats = count;
-    pthread_cond_broadcast(&(station->trainArrival));
-    pthread_cond_wait(&(station->boardingDone), &(station->mutex));
+    pthread_cond_broadcast(&(station->trainArrival));   //Signal for all passengers to try to board
+    pthread_cond_wait(&(station->boardingDone), &(station->mutex)); //Wait until all of them are boarded before it departs
     station->availableSeats = 0;
     pthread_mutex_unlock(&(station->mutex));
 }
@@ -33,10 +30,9 @@ station_load_train(struct station *station, int count)
 void
 station_wait_for_train(struct station *station)
 {
-    // FILL ME IN
     pthread_mutex_lock(&(station->mutex));
     station->waitingPassengers++;
-    while(station->availableSeats == 0)
+    while(station->availableSeats == 0) //"While" instead of "if" due to passengers racing for the available seats
         pthread_cond_wait(&(station->trainArrival), &(station->mutex));
     station->availableSeats--;
     station->waitingPassengers--;
@@ -47,7 +43,6 @@ station_wait_for_train(struct station *station)
 void
 station_on_board(struct station *station)
 {
-    // FILL ME IN
     pthread_mutex_lock(&(station->mutex));
     station->boardingPassengers--;
     if(station->boardingPassengers == 0 && (station->availableSeats == 0 || station->waitingPassengers == 0))
